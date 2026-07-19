@@ -500,10 +500,12 @@ $cardSearch.addEventListener('input', (e) => {
 // 9. KARTE HINZUFÜGEN
 // ------------------------------------------------------------
 function addCardToMyList(card) {
-    state.myCards.push({
+    // Füge Karte mit Timestamp hinzu für Sortierung (neueste zuerst)
+    state.myCards.unshift({
         name: card.name,
         set: card.set || state.selectedSetCode,
         number: card.collector_number || '0',
+        addedAt: Date.now() // Timestamp für Sortierung
     });
     saveMyCards(state.myCards);
     renderCardList();
@@ -524,6 +526,8 @@ function renderCardList() {
         $cardCount.innerText = '0';
         return;
     }
+    
+    // Karten sind bereits nach Hinzufügen sortiert (neueste zuerst durch unshift)
     let html = '';
     state.myCards.forEach((c, idx) => {
         html += `
@@ -590,15 +594,55 @@ $clearBtn.addEventListener('click', () => {
 });
 
 // ------------------------------------------------------------
-// 12. TASTATUR-SHORTCUT
+// 12. TASTATUR-SHORTCUT (verbessert)
 // ------------------------------------------------------------
 $cardSearch.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
-        const firstSuggestion = document.querySelector('.suggestion-item');
-        if (firstSuggestion) {
-            firstSuggestion.click();
+        const suggestions = document.querySelectorAll('.suggestion-item');
+        
+        if (suggestions.length === 0) {
+            // Keine Vorschläge vorhanden
+            $status.innerText = '⚠️ Keine Karten für diese Suche gefunden.';
+        } else if (suggestions.length === 1) {
+            // Nur ein Vorschlag - direkt auswählen
+            suggestions[0].click();
+        } else {
+            // Mehrere Vorschläge - Benutzer muss auswählen
+            $status.innerText = '⚠️ Bitte wähle eine Karte aus der Liste aus (klicken).';
+            // Optional: ersten Vorschlag visuell hervorheben
+            suggestions.forEach(s => s.style.background = '');
+            suggestions[0].style.background = 'var(--highlight-bg, #e3f2fd)';
         }
+    }
+    
+    // Pfeiltasten-Navigation für bessere Auswahl
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const suggestions = document.querySelectorAll('.suggestion-item');
+        if (suggestions.length === 0) return;
+        
+        // Finde aktuell hervorgehobenen Vorschlag
+        let currentIndex = -1;
+        suggestions.forEach((s, i) => {
+            if (s.style.background && s.style.background !== '') {
+                currentIndex = i;
+            }
+        });
+        
+        // Entferne alte Hervorhebung
+        suggestions.forEach(s => s.style.background = '');
+        
+        // Berechne neuen Index
+        if (e.key === 'ArrowDown') {
+            currentIndex = currentIndex < suggestions.length - 1 ? currentIndex + 1 : 0;
+        } else {
+            currentIndex = currentIndex > 0 ? currentIndex - 1 : suggestions.length - 1;
+        }
+        
+        // Hebe neuen Vorschlag hervor
+        suggestions[currentIndex].style.background = 'var(--highlight-bg, #e3f2fd)';
+        suggestions[currentIndex].scrollIntoView({ block: 'nearest' });
     }
 });
 
@@ -611,4 +655,4 @@ console.log('🃏 Alte-Sets-Import-Tool geladen (alle Sets vor M15).');
 console.log(`📋 ${state.myCards.length} Karten aus localStorage geladen.`);
 console.log('🌍 Suche durchsucht gleichzeitig englische UND deutsche Kartennamen.');
 console.log('📊 Ladebalken zeigen EN (grün) und DE (blau) Status pro Set.');
-console.log('💡 Tipp: Klick auf einen Kartenvorschlag fügt ihn sofort hinzu!');
+console.log('💡 Tipp: Mit Pfeiltasten durch Vorschläge navigieren, mit Enter bestätigen!');
