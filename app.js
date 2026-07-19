@@ -279,11 +279,32 @@ async function selectSet(code) {
     $status.innerText = `📥 Lade Karten von ${code.toUpperCase()} (EN + DE parallel) …`;
 
     try {
-        // BEIDE Sprachen parallel laden
-        const [enCards, deCards] = await Promise.all([
-            fetchSetCards(code, 'en'),
-            fetchSetCards(code, 'de')
-        ]);
+        // Prüfe zuerst den Cache für BEIDE Sprachen
+        const cachedEn = await getCachedSet(code + '_en');
+        const cachedDe = await getCachedSet(code + '_de');
+        
+        let enCards, deCards;
+        
+        if (cachedEn && cachedDe) {
+            // Beide Sprachen aus Cache laden
+            enCards = cachedEn.data;
+            deCards = cachedDe.data;
+            $status.innerText = `📦 ${code.toUpperCase()} aus Cache geladen (EN + DE)`;
+        } else {
+            // BEIDE Sprachen parallel laden
+            [enCards, deCards] = await Promise.all([
+                fetchSetCards(code, 'en'),
+                fetchSetCards(code, 'de')
+            ]);
+            
+            // BEIDE Sprachen cachen
+            if (enCards.length > 0) {
+                await cacheSet(code + '_en', enCards);
+            }
+            if (deCards.length > 0) {
+                await cacheSet(code + '_de', deCards);
+            }
+        }
 
         // Status speichern
         const loadStatus = {
@@ -389,10 +410,6 @@ async function fetchSetCards(code, lang) {
         await new Promise(r => setTimeout(r, 80));
     }
 
-    // Nur englische Karten cachen
-    if (lang === 'en') {
-        await cacheSet(code, allCards);
-    }
     return allCards;
 }
 
